@@ -1,5 +1,11 @@
 # vgrep
 
+
+
+https://github.com/user-attachments/assets/d940aad8-dc4c-4504-8998-ab40853d7c02
+
+
+
 Semantic search over your own images. Describe what you're looking for; get the photo. Runs entirely on your machine.
 
 ```console
