@@ -2,6 +2,23 @@
 
 from __future__ import annotations
 
+import os
+
+# Silence library chatter before torch/transformers are imported -- these emit
+# HF Hub auth warnings, tokenizer id complaints, and a weight-loading progress
+# bar on every single invocation, which drowns out the actual results.
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
+import logging
+import warnings
+
+warnings.filterwarnings("ignore")
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+
 import numpy as np
 from PIL import Image
 
@@ -44,6 +61,10 @@ class Encoder:
             return
         import torch
         from transformers import AutoModel, AutoProcessor
+        from transformers.utils import logging as hf_logging
+
+        hf_logging.set_verbosity_error()
+        hf_logging.disable_progress_bar()
 
         self._processor = AutoProcessor.from_pretrained(self.model_name)
         self._model = AutoModel.from_pretrained(

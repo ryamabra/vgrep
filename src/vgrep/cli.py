@@ -30,6 +30,32 @@ console = Console()
 err = Console(stderr=True)
 
 
+def _display_path(p: str, base: Path | None) -> str:
+    """Shorten a path for display.
+
+    Full absolute paths dominate the line and bury the filename, which is the
+    part the reader actually wants. Worse, when a path wraps across two terminal
+    lines, click-to-open stops working in most emulators.
+    """
+    path = Path(p)
+    if base is not None:
+        try:
+            return "./" + str(path.relative_to(base))
+        except ValueError:
+            pass
+
+    text = str(path)
+    # The Photos library prefix is ~60 characters of pure noise on every line.
+    marker = ".photoslibrary/originals/"
+    if marker in text:
+        return "Photos:" + text.split(marker, 1)[1]
+
+    try:
+        return "~/" + str(path.relative_to(Path.home()))
+    except ValueError:
+        return text
+
+
 def _open_db() -> Db:
     db = Db(SETTINGS.db_path)
     db.check_model_compatibility(SETTINGS.model, SETTINGS.dim)
@@ -116,6 +142,9 @@ def search_cmd(
     open_top: bool = typer.Option(
         False, "--open", "-o", help="Open the best match in Preview"
     ),
+    base: Path = typer.Option(
+        None, "--in", help="Only show results under this directory, as relative paths"
+    ),
 ) -> None:
     """Search the index by meaning."""
     from .encoder import Encoder
@@ -127,13 +156,29 @@ def search_cmd(
         raise typer.Exit(1)
 
     qvec = Encoder().encode_text([query])[0]
-    hits = [(i, s) for i, s in faiss_index.search(idx, qvec, k) if s >= threshold]
+
+    # Over-fetch when filtering by directory, so a --in scope still yields k
+    # results rather than however many of the global top-k happen to fall inside.
+    fetch = k * 10 if base is not None else k
+    raw = [(i, s) for i, s in faiss_index.search(idx, qvec, fetch) if s >= threshold]
+
+    all_paths = db.paths_for(i for i, _ in raw)
+
+    if base is not None:
+        root = base.expanduser().resolve()
+        raw = [
+            (i, s) for i, s in raw
+            if root in Path(all_paths.get(i, "/")).parents
+        ]
+
+    hits = raw[:k]
 
     if not hits:
         err.print("[dim]No matches above threshold.[/dim]")
         raise typer.Exit(1)
 
-    paths = db.paths_for(i for i, _ in hits)
+    paths = all_paths
+    root = base.expanduser().resolve() if base is not None else None
     for fid, score in hits:
         p = paths.get(fid)
         if not p:
@@ -148,7 +193,9 @@ def search_cmd(
             # 22-category corpus the noise floor sat around 8% and correct matches
             # landed at 12-18%, so those are the boundaries.
             colour = "green" if score > 0.14 else "yellow" if score > 0.10 else "dim"
-            console.print(f"[{colour}]{score:6.1%}[/{colour}]  {p}")
+            console.print(
+                f"[{colour}]{score:6.1%}[/{colour}]  {_display_path(p, root)}"
+            )
 
     if open_top:
         import subprocess
@@ -156,6 +203,110 @@ def search_cmd(
         best = paths.get(hits[0][0])
         if best:
             subprocess.run(["open", best], check=False)
+
+    db.close()
+
+
+@app.command("shell")
+def shell_cmd(
+    k: int = typer.Option(SETTINGS.top_k, "--k", "-k"),
+    base: Path = typer.Option(None, "--in", help="Scope results to this directory"),
+) -> None:
+    """Interactive session. Loads the model once, then every query is instant.
+
+    A one-shot `vgrep <query>` spends 2-4 seconds loading 1.5 GB of weights and
+    ~17 ms actually searching. For anything more than a single lookup, paying
+    that cost once is the difference between sluggish and immediate.
+    """
+    from .encoder import Encoder
+
+    db = _open_db()
+    idx = faiss_index.load(SETTINGS.index_path)
+    if idx is None or idx.ntotal == 0:
+        err.print("[yellow]Nothing indexed yet. Run `vgrep index <dir>` first.[/yellow]")
+        raise typer.Exit(1)
+
+    root = base.expanduser().resolve() if base is not None else None
+
+    with console.status("Loading model..."):
+        enc = Encoder()
+        enc.encode_text(["warmup"])  # force the lazy load now, not on first query
+
+    console.print(
+        f"[dim]{idx.ntotal} images indexed. Type a query, `open N` to view a result, "
+        f"or Ctrl-D to quit.[/dim]\n"
+    )
+
+    last: list[str] = []  # paths from the most recent search, for `open N`
+
+    # Arrow keys and other control keys emit ANSI escape sequences that end up
+    # in the input buffer, silently corrupting what looks like a clean command.
+    import re
+
+    ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b.")
+
+    while True:
+        try:
+            # Plain input() rather than rich's, which does not handle raw escape
+            # sequences from this terminal cleanly.
+            raw = input("> ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+
+        query = ansi.sub("", raw).strip()
+
+        if not query:
+            continue
+        if query in {"quit", "exit"}:
+            break
+
+        # `open 3` / `o 3` views a result from the previous search. Terminal
+        # emulators wrap long paths across lines, which breaks click-to-open,
+        # so an explicit index is more reliable than expecting the path to be
+        # clickable.
+        parts = query.split()
+        if len(parts) == 2 and parts[0] in {"open", "o"} and parts[1].isdigit():
+            n = int(parts[1])
+            if 1 <= n <= len(last):
+                import subprocess
+
+                subprocess.run(["open", last[n - 1]], check=False)
+                console.print(f"[dim]  opened {n}[/dim]\n")
+            else:
+                console.print(f"[dim]  no result {n}[/dim]\n")
+            continue
+
+        t0 = time.time()
+        qvec = enc.encode_text([query])[0]
+        fetch = k * 10 if root is not None else k
+        hits = faiss_index.search(idx, qvec, fetch)
+
+        paths = db.paths_for(i for i, _ in hits)
+        if root is not None:
+            hits = [
+                (i, s) for i, s in hits
+                if root in Path(paths.get(i, "/")).parents
+            ]
+        hits = hits[:k]
+
+        if not hits:
+            console.print("[dim]  no matches[/dim]\n")
+            last = []
+            continue
+
+        last = []
+        for rank, (fid, score) in enumerate(hits, 1):
+            p = paths.get(fid)
+            if not p:
+                continue
+            last.append(p)
+            colour = "green" if score > 0.14 else "yellow" if score > 0.10 else "dim"
+            console.print(
+                f"[dim]{rank:2}.[/dim] [{colour}]{score:6.1%}[/{colour}]  "
+                f"{_display_path(p, root)}"
+            )
+        console.print(f"[dim]  {(time.time() - t0) * 1000:.0f} ms[/dim]\n")
 
     db.close()
 
@@ -201,7 +352,7 @@ def run() -> None:
     """
     import sys
 
-    known = {"index", "search", "status", "reset"}
+    known = {"index", "search", "shell", "status", "reset"}
     argv = sys.argv[1:]
     if argv and argv[0] not in known and not argv[0].startswith("-"):
         sys.argv.insert(1, "search")
