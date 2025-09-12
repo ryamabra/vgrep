@@ -100,8 +100,6 @@ what matters for ranking is the gap above the noise floor, measured at ~8%.
 
 ## Performance
 
-MacBook Air M2, steady state. The chassis is fanless and throttles under sustained
-load, so these are lower than a first-minute measurement would suggest.
 
 | | |
 |---|---|
