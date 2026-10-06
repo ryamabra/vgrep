@@ -64,6 +64,11 @@ def search(index: FlatIndex | None, query: np.ndarray, k: int) -> list[tuple[int
         return []
 
     q = np.asarray(query, dtype=np.float32).ravel()
+    if q.shape[0] != index.vectors.shape[1]:
+        raise ValueError(
+            f"query dimension {q.shape[0]} does not match index dimension "
+            f"{index.vectors.shape[1]}"
+        )
     scores = index.vectors @ q
 
     k = min(k, index.ntotal)
