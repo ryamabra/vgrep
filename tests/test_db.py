@@ -85,3 +85,14 @@ def test_corrupt_embedding_dimension_is_reported(db):
 
     with pytest.raises(RuntimeError, match="expected 4, found 3"):
         db.all_embeddings(4)
+
+
+def test_drop_missing_removes_only_deleted_files(db, tmp_path):
+    present = tmp_path / "present.jpg"
+    present.write_bytes(b"image")
+    db.upsert_file(str(present), 1.0, 5)
+    db.upsert_file(str(tmp_path / "gone.jpg"), 1.0, 5)
+    db.conn.commit()
+
+    assert db.drop_missing() == 1
+    assert db.stats()["total"] == 1
