@@ -41,6 +41,12 @@ class Db:
         self.conn.executescript(SCHEMA)
         self.conn.commit()
 
+    def __enter__(self) -> "Db":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
+
     # -- meta ---------------------------------------------------------------
 
     def get_meta(self, key: str) -> str | None:

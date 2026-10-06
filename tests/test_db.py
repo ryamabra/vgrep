@@ -67,3 +67,12 @@ def test_embeddings_roundtrip(db):
     vecs, ids = db.all_embeddings(4)
     assert ids == [fid]
     np.testing.assert_allclose(vecs[0], v)
+
+
+def test_database_supports_context_manager(tmp_path):
+    with Db(tmp_path / "context.db") as database:
+        database.set_meta("key", "value")
+        assert database.get_meta("key") == "value"
+
+    with pytest.raises(Exception, match="closed"):
+        database.get_meta("key")
