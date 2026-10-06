@@ -14,3 +14,9 @@ def test_image_discovery_is_deterministic(tmp_path):
     (tmp_path / "a.jpg").write_bytes(b"a")
 
     assert [path.name for path in iter_images(tmp_path)] == ["a.jpg", "z.jpg"]
+
+
+def test_image_discovery_accepts_uppercase_extensions(tmp_path):
+    (tmp_path / "PHOTO.JPEG").write_bytes(b"image")
+
+    assert [path.name for path in iter_images(tmp_path)] == ["PHOTO.JPEG"]
