@@ -24,6 +24,10 @@ class FlatIndex:
     def __init__(self, vectors: np.ndarray, ids: list[int]):
         self.vectors = np.ascontiguousarray(vectors, dtype=np.float32)
         self.ids = np.asarray(ids, dtype=np.int64)
+        if self.vectors.ndim != 2:
+            raise ValueError("vectors must be a two-dimensional matrix")
+        if len(self.vectors) != len(self.ids):
+            raise ValueError("vector and id counts must match")
 
     @property
     def ntotal(self) -> int:
