@@ -20,3 +20,13 @@ def test_image_discovery_accepts_uppercase_extensions(tmp_path):
     (tmp_path / "PHOTO.JPEG").write_bytes(b"image")
 
     assert [path.name for path in iter_images(tmp_path)] == ["PHOTO.JPEG"]
+
+
+def test_ignore_patterns_match_relative_paths_and_basenames(tmp_path):
+    album = tmp_path / "album"
+    album.mkdir()
+    (album / "keep.jpg").write_bytes(b"image")
+    (album / "cover.jpg").write_bytes(b"image")
+    (tmp_path / ".vgrepignore").write_text("album/keep.jpg\ncover.jpg\n", encoding="utf-8")
+
+    assert list(iter_images(tmp_path)) == []
