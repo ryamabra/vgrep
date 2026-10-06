@@ -17,7 +17,7 @@ def load_ignore_patterns(root: Path) -> list[str]:
     return [
         line.strip()
         for line in f.read_text().splitlines()
-        if line.strip() and not line.startswith("#")
+        if line.strip() and not line.lstrip().startswith("#")
     ]
 
 
