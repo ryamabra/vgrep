@@ -68,6 +68,12 @@ class Db:
                 "Vectors from different models are not comparable. "
                 "Run `vgrep reset` and re-index."
             )
+        seen_dim = self.get_meta("dim")
+        if seen_dim != str(dim):
+            raise RuntimeError(
+                f"Index dimension is {seen_dim!r} but the encoder produces {dim}. "
+                "Run `vgrep reset` and re-index."
+            )
 
     # -- files --------------------------------------------------------------
 

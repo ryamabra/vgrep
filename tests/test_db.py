@@ -52,6 +52,12 @@ def test_model_mismatch_is_refused(db):
         db.check_model_compatibility("model-b", 768)
 
 
+def test_dimension_mismatch_is_refused(db):
+    db.check_model_compatibility("model-a", 768)
+    with pytest.raises(RuntimeError, match="dimension"):
+        db.check_model_compatibility("model-a", 512)
+
+
 def test_embeddings_roundtrip(db):
     db.upsert_file("/a.jpg", 1.0, 1)
     fid = db.conn.execute("SELECT id FROM files").fetchone()["id"]
