@@ -30,7 +30,7 @@ def iter_images(root: Path) -> Iterator[Path]:
     root = root.expanduser().resolve()
     patterns = load_ignore_patterns(root)
 
-    for path in root.rglob("*"):
+    for path in sorted(root.rglob("*")):
         if any(part in SKIP_DIRS for part in path.parts):
             continue
         if path.name.startswith("."):
