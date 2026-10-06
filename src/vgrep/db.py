@@ -144,7 +144,13 @@ class Db:
         ).fetchall()
         if not rows:
             return np.zeros((0, dim), dtype=np.float32), []
-        vecs = np.vstack([np.frombuffer(r["embedding"], dtype=np.float32) for r in rows])
+        vectors = [np.frombuffer(r["embedding"], dtype=np.float32) for r in rows]
+        invalid = [len(vector) for vector in vectors if len(vector) != dim]
+        if invalid:
+            raise RuntimeError(
+                f"Stored embedding dimension mismatch: expected {dim}, found {invalid[0]}"
+            )
+        vecs = np.vstack(vectors)
         return vecs, [r["id"] for r in rows]
 
     def paths_for(self, ids: Iterable[int]) -> dict[int, str]:

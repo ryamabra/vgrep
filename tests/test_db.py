@@ -76,3 +76,12 @@ def test_database_supports_context_manager(tmp_path):
 
     with pytest.raises(Exception, match="closed"):
         database.get_meta("key")
+
+
+def test_corrupt_embedding_dimension_is_reported(db):
+    db.upsert_file("/a.jpg", 1.0, 1)
+    fid = db.conn.execute("SELECT id FROM files").fetchone()["id"]
+    db.save_embeddings([(fid, np.ones(3, dtype=np.float32))], 1.0)
+
+    with pytest.raises(RuntimeError, match="expected 4, found 3"):
+        db.all_embeddings(4)
