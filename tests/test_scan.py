@@ -30,3 +30,13 @@ def test_ignore_patterns_match_relative_paths_and_basenames(tmp_path):
     (tmp_path / ".vgrepignore").write_text("album/keep.jpg\ncover.jpg\n", encoding="utf-8")
 
     assert list(iter_images(tmp_path)) == []
+
+
+def test_hidden_files_and_noise_directories_are_skipped(tmp_path):
+    (tmp_path / ".hidden.jpg").write_bytes(b"image")
+    cache = tmp_path / "node_modules"
+    cache.mkdir()
+    (cache / "dependency.png").write_bytes(b"image")
+    (tmp_path / "visible.webp").write_bytes(b"image")
+
+    assert [path.name for path in iter_images(tmp_path)] == ["visible.webp"]
