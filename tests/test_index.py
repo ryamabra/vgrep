@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from vgrep.index import FlatIndex, search
+from vgrep.index import FlatIndex, load, search
 
 
 def test_index_rejects_mismatched_vector_and_id_counts():
@@ -24,3 +24,13 @@ def test_search_rejects_query_dimension_mismatch():
     index = FlatIndex(np.eye(2, dtype=np.float32), [10, 20])
     with pytest.raises(ValueError, match="query dimension 3"):
         search(index, np.ones(3, dtype=np.float32), 1)
+
+
+def test_saved_index_roundtrips_and_preserves_rankings(tmp_path):
+    path = tmp_path / "index.npz"
+    FlatIndex(np.eye(2, dtype=np.float32), [10, 20]).save(path)
+
+    restored = load(path)
+
+    assert restored is not None
+    assert search(restored, np.array([0.9, 0.1], dtype=np.float32), 2)[0][0] == 10

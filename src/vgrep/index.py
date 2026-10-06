@@ -40,8 +40,10 @@ class FlatIndex:
     def load(cls, path: Path) -> "FlatIndex | None":
         if not path.exists():
             return None
-        data = np.load(path)
-        return cls(data["vectors"], data["ids"].tolist())
+        with np.load(path) as data:
+            vectors = data["vectors"].copy()
+            ids = data["ids"].tolist()
+        return cls(vectors, ids)
 
 
 def build(vectors: np.ndarray, ids: list[int], path: Path, dim: int) -> FlatIndex:
