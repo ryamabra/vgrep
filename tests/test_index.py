@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from vgrep.index import FlatIndex
+from vgrep.index import FlatIndex, search
 
 
 def test_index_rejects_mismatched_vector_and_id_counts():
@@ -12,3 +12,9 @@ def test_index_rejects_mismatched_vector_and_id_counts():
 def test_index_rejects_one_dimensional_vectors():
     with pytest.raises(ValueError, match="two-dimensional"):
         FlatIndex(np.zeros(4, dtype=np.float32), [1, 2, 3, 4])
+
+
+def test_search_requires_positive_result_count():
+    index = FlatIndex(np.eye(2, dtype=np.float32), [10, 20])
+    with pytest.raises(ValueError, match="positive integer"):
+        search(index, np.ones(2, dtype=np.float32), 0)

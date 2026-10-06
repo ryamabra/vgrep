@@ -58,6 +58,8 @@ def load(path: Path) -> FlatIndex | None:
 
 def search(index: FlatIndex | None, query: np.ndarray, k: int) -> list[tuple[int, float]]:
     """Returns (file_id, similarity) pairs, best first."""
+    if not isinstance(k, int) or k <= 0:
+        raise ValueError("k must be a positive integer")
     if index is None or index.ntotal == 0:
         return []
 
