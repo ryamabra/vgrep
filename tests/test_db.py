@@ -96,3 +96,19 @@ def test_drop_missing_removes_only_deleted_files(db, tmp_path):
 
     assert db.drop_missing() == 1
     assert db.stats()["total"] == 1
+
+
+def test_paths_for_handles_large_id_sets(db):
+    count = 1_200
+    db.conn.executemany(
+        "INSERT INTO files(path, mtime, size) VALUES(?, 1.0, 1)",
+        [(f"/{index}.jpg",) for index in range(count)],
+    )
+    db.conn.commit()
+    ids = [row["id"] for row in db.conn.execute("SELECT id FROM files ORDER BY id")]
+
+    paths = db.paths_for(iter(ids))
+
+    assert len(paths) == count
+    assert paths[ids[0]] == "/0.jpg"
+    assert paths[ids[-1]] == f"/{count - 1}.jpg"

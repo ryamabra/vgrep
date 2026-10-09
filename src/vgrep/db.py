@@ -154,11 +154,20 @@ class Db:
         return vecs, [r["id"] for r in rows]
 
     def paths_for(self, ids: Iterable[int]) -> dict[int, str]:
-        ids = list(ids)
+        ids = list(dict.fromkeys(ids))
         if not ids:
             return {}
-        q = f"SELECT id, path FROM files WHERE id IN ({','.join('?' * len(ids))})"
-        return {r["id"]: r["path"] for r in self.conn.execute(q, ids)}
+
+        paths: dict[int, str] = {}
+        # Stay below SQLite builds that retain the historical 999-variable limit.
+        for start in range(0, len(ids), 900):
+            chunk = ids[start : start + 900]
+            placeholders = ",".join("?" * len(chunk))
+            query = f"SELECT id, path FROM files WHERE id IN ({placeholders})"
+            paths.update(
+                {row["id"]: row["path"] for row in self.conn.execute(query, chunk)}
+            )
+        return paths
 
     def stats(self) -> dict[str, int]:
         c = self.conn.execute(
