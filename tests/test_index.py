@@ -33,6 +33,13 @@ def test_search_rejects_query_dimension_mismatch():
         search(index, np.ones(3, dtype=np.float32), 1)
 
 
+def test_search_rejects_non_finite_query():
+    index = FlatIndex(np.eye(2, dtype=np.float32), [10, 20])
+
+    with pytest.raises(ValueError, match="query must contain only finite values"):
+        search(index, np.array([np.nan, 1.0], dtype=np.float32), 1)
+
+
 def test_saved_index_roundtrips_and_preserves_rankings(tmp_path):
     path = tmp_path / "index.npz"
     FlatIndex(np.eye(2, dtype=np.float32), [10, 20]).save(path)

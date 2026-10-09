@@ -73,6 +73,8 @@ def search(index: FlatIndex | None, query: np.ndarray, k: int) -> list[tuple[int
             f"query dimension {q.shape[0]} does not match index dimension "
             f"{index.vectors.shape[1]}"
         )
+    if not np.isfinite(q).all():
+        raise ValueError("query must contain only finite values")
     scores = index.vectors @ q
 
     k = min(k, index.ntotal)
