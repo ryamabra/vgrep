@@ -13,6 +13,8 @@ significant chunk of install weight.
 
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -36,7 +38,20 @@ class FlatIndex:
         return int(self.vectors.shape[0])
 
     def save(self, path: Path) -> None:
-        np.savez(path, vectors=self.vectors, ids=self.ids)
+        path = Path(path)
+        temporary: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False
+            ) as file:
+                temporary = Path(file.name)
+                np.savez(file, vectors=self.vectors, ids=self.ids)
+                file.flush()
+                os.fsync(file.fileno())
+            os.replace(temporary, path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     @classmethod
     def load(cls, path: Path) -> "FlatIndex | None":

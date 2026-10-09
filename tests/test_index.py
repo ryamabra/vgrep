@@ -48,3 +48,20 @@ def test_saved_index_roundtrips_and_preserves_rankings(tmp_path):
 
     assert restored is not None
     assert search(restored, np.array([0.9, 0.1], dtype=np.float32), 2)[0][0] == 10
+
+
+def test_failed_save_preserves_existing_index(tmp_path, monkeypatch):
+    path = tmp_path / "index.npz"
+    original = FlatIndex(np.eye(2, dtype=np.float32), [10, 20])
+    original.save(path)
+
+    def fail_save(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(np, "savez", fail_save)
+    with pytest.raises(OSError, match="disk full"):
+        FlatIndex(np.eye(2, dtype=np.float32), [30, 40]).save(path)
+
+    restored = load(path)
+    assert restored is not None
+    assert restored.ids.tolist() == [10, 20]
