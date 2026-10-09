@@ -28,6 +28,8 @@ class FlatIndex:
             raise ValueError("vectors must be a two-dimensional matrix")
         if len(self.vectors) != len(self.ids):
             raise ValueError("vector and id counts must match")
+        if not np.isfinite(self.vectors).all():
+            raise ValueError("vectors must contain only finite values")
 
     @property
     def ntotal(self) -> int:

@@ -14,6 +14,13 @@ def test_index_rejects_one_dimensional_vectors():
         FlatIndex(np.zeros(4, dtype=np.float32), [1, 2, 3, 4])
 
 
+def test_index_rejects_non_finite_vectors():
+    vectors = np.array([[1.0, np.nan], [np.inf, 0.0]], dtype=np.float32)
+
+    with pytest.raises(ValueError, match="finite values"):
+        FlatIndex(vectors, [1, 2])
+
+
 def test_search_requires_positive_result_count():
     index = FlatIndex(np.eye(2, dtype=np.float32), [10, 20])
     with pytest.raises(ValueError, match="positive integer"):
