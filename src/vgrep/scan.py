@@ -28,6 +28,10 @@ def _ignored(rel: str, patterns: list[str]) -> bool:
 def iter_images(root: Path) -> Iterator[Path]:
     """Yield image files under root, skipping noise directories and ignored globs."""
     root = root.expanduser().resolve()
+    if not root.exists():
+        raise FileNotFoundError(f"index root does not exist: {root}")
+    if not root.is_dir():
+        raise NotADirectoryError(f"index root is not a directory: {root}")
     patterns = load_ignore_patterns(root)
 
     for path in sorted(root.rglob("*")):

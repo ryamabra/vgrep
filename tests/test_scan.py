@@ -1,3 +1,5 @@
+import pytest
+
 from vgrep.scan import iter_images, load_ignore_patterns
 
 
@@ -40,3 +42,16 @@ def test_hidden_files_and_noise_directories_are_skipped(tmp_path):
     (tmp_path / "visible.webp").write_bytes(b"image")
 
     assert [path.name for path in iter_images(tmp_path)] == ["visible.webp"]
+
+
+def test_image_discovery_rejects_missing_root(tmp_path):
+    with pytest.raises(FileNotFoundError, match="index root does not exist"):
+        list(iter_images(tmp_path / "missing"))
+
+
+def test_image_discovery_rejects_file_root(tmp_path):
+    image = tmp_path / "photo.jpg"
+    image.write_bytes(b"image")
+
+    with pytest.raises(NotADirectoryError, match="index root is not a directory"):
+        list(iter_images(image))
